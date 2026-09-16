@@ -1,0 +1,29 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script type="text/javascript" src="https://get.goXTK.com/xtk_edge.js"></script>
+    <script>
+        window.onload = () => {
+            var r = new X.renderer3D();
+            r.init()
+
+            cube = new X.cube();
+            cube.color = [0, 0.5, 0.3]
+
+            r.add(cube);
+            r.render();            
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: black;
+        }
+    </style>
+    <title>Document</title>
+</head>
+<body>
+    <canvas width="100vw" height="100vh"></canvas>
+</body>
+</html>
