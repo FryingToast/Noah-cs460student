@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Spiral Cubes Vanishing Point</title>
+    <!-- Tailwind CSS for UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- Post-processing dependecies -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #050508;
+            color: #ffffff;
+            user-select: none;
+        }
+        
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* Glassmorphism Styling */
+        .glass-panel {
+            background: rgba(15, 18, 28, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+        }
+
+        .glass-button {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            transition: all 0.2s ease-in-out;
+        }
+        .glass-button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
+        /* Custom Scrollbar for Controls */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        /* Custom Range Input */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 3px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #6366f1;
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -5px;
+            box-shadow: 0 0 10px rgba(99, 102, 241, 0.8);
+            transition: transform 0.1s, background-color 0.2s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            background: #818cf8;
+        }
+    </style>
+</head>
+<body class="overflow-hidden bg-black text-white">
+
+    <!-- 3D Canvas Container -->
+    <div id="canvas-container"></div>
+
+    <!-- UI Overlay Header -->
+    <div class="fixed top-4 left-4 z-10 flex items-center space-x-3 pointer-events-none">
+        <div class="p-3 rounded-2xl glass-panel flex items-center gap-3 pointer-events-auto">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                <i class="fa-solid fa-cube text-white text-lg"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-sm tracking-wide text-gray-100">VORTEX SHADER</h1>
+                <p class="text-xs text-gray-400">Spiral Vanishing Point</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Action Controls Top Right -->
+    <div class="fixed top-4 right-4 z-10 flex gap-2">
+        <button id="btn-toggle-controls" class="glass-button w-10 h-10 rounded-xl flex items-center justify-center text-gray-200 hover:text-white" title="Toggle Controls">
+            <i class="fa-solid fa-sliders"></i>
+        </button>
+        <button id="btn-auto-rotate" class="glass-button w-10 h-10 rounded-xl flex items-center justify-center text-indigo-400 hover:text-indigo-300" title="Toggle Camera Auto-Rotate">
+            <i class="fa-solid fa-arrows-spin"></i>
+        </button>
+        <button id="btn-reset-cam" class="glass-button w-10 h-10 rounded-xl flex items-center justify-center text-gray-200 hover:text-white" title="Reset Camera">
+            <i class="fa-solid fa-video"></i>
+        </button>
+    </div>
+
+    <!-- Main Control Panel -->
+    <div id="control-panel" class="fixed top-16 right-4 z-10 w-80 max-h-[calc(100vh-5rem)] overflow-y-auto glass-panel rounded-2xl p-5 space-y-5 transition-all duration-300 transform translate-x-0">
+        
+        <div class="flex justify-between items-center border-b border-white/10 pb-3">
+            <span class="font-semibold text-sm tracking-wider uppercase text-gray-300 flex items-center gap-2">
+                <i class="fa-solid fa-gears text-indigo-400"></i> Parameters
+            </span>
+            <span id="fps-counter" class="text-xs font-mono bg-black/40 px-2 py-1 rounded text-emerald-400">60 FPS</span>
+        </div>
+
+        <!-- Presets -->
+        <div class="space-y-2">
+            <label class="text-xs font-medium text-gray-400 uppercase tracking-wider">Presets</label>
+            <div class="grid grid-cols-3 gap-1.5">
+                <button data-preset="hyperdrive" class="preset-btn glass-button py-1.5 px-2 rounded-lg text-xs font-medium text-gray-300 hover:text-white">Hyperdrive</button>
+                <button data-preset="cyberpunk" class="preset-btn glass-button py-1.5 px-2 rounded-lg text-xs font-medium text-gray-300 hover:text-white">Cyber</button>
+                <button data-preset="nebula" class="preset-btn glass-button py-1.5 px-2 rounded-lg text-xs font-medium text-gray-300 hover:text-white">Nebula</button>
+            </div>
+        </div>
+
+        <!-- Color Palette -->
+        <div class="space-y-2">
+            <label class="text-xs font-medium text-gray-400 uppercase tracking-wider flex justify-between">
+                <span>Color Palette</span>
+                <span id="palette-name" class="text-indigo-400">Neon Synth</span>
+            </label>
+            <div class="grid grid-cols-4 gap-2">
+                <button data-palette="neon" class="palette-btn h-8 rounded-lg border-2 border-indigo-500 bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-400"></button>
+                <button data-palette="fire" class="palette-btn h-8 rounded-lg border border-white/10 bg-gradient-to-r from-red-500 via-amber-500 to-yellow-300"></button>
+                <button data-palette="matrix" class="palette-btn h-8 rounded-lg border border-white/10 bg-gradient-to-r from-emerald-600 via-green-400 to-lime-300"></button>
+                <button data-palette="deepspace" class="palette-btn h-8 rounded-lg border border-white/10 bg-gradient-to-r from-blue-700 via-indigo-500 to-teal-300"></button>
+            </div>
+        </div>
+
+        <!-- Cube Count -->
+        <div class="space-y-1">
+            <div class="flex justify-between text-xs">
+                <span class="text-gray-300">Cube Count</span>
+                <span id="val-cube-count" class="font-mono text-indigo-400">400</span>
+            </div>
+            <input type="range" id="input-cube-count" min="100" max="1000" step="20" value="400">
+        </div>
+
+        <!-- Speed -->
+        <div class="space-y-1">
+            <div class="flex justify-between text-xs">
+                <span class="text-gray-300">Flow Speed</span>
+                <span id="val-speed" class="font-mono text-indigo-400">1.2</span>
+            </div>
+            <input type="range" id="input-speed" min="0.1" max="4.0" step="0.1" value="1.2">
+        </div>
+
+        <!-- Spiral Radius -->
+        <div class="space-y-1">
+            <div class="flex justify-between text-xs">
+                <span class="text-gray-300">Spiral Radius</span>
+                <span id="val-radius" class="font-mono text-indigo-400">35</span>
+            </div>
+            <input type="range" id="input-radius" min="10" max="80" step="1" value="35">
+        </div>
+
+        <!-- Twist / Spiral Density -->
+        <div class="space-y-1">
+            <div class="flex justify-between text-xs">
+                <span class="text-gray-300">Spiral Twist</span>
+                <span id="val-twist" class="font-mono text-indigo-400">12.0</span>
+            </div>
+            <input type="range" id="input-twist" min="2.0" max="30.0" step="0.5" value="12.0">
+        </div>
+
+        <!-- Tunnel Depth -->
+        <div class="space-y-1">
+            <div class="flex justify-between text-xs">
+                <span class="text-gray-300">Tunnel Length</span>
+                <span id="val-depth" class="font-mono text-indigo-400">300</span>
+            </div>
+            <input type="range" id="input-depth" min="150" max="600" step="10" value="300">
+        </div>
+
+        <!-- Cube Rotation Speed -->
+        <div class="space-y-1">
+            <div class="flex justify-between text-xs">
+                <span class="text-gray-300">Cube Spin</span>
+                <span id="val-spin" class="font-mono text-indigo-400">1.5</span>
+            </div>
+            <input type="range" id="input-spin" min="0.0" max="5.0" step="0.1" value="1.5">
+        </div>
+
+        <!-- Bloom Intensity -->
+        <div class="space-y-1">
+            <div class="flex justify-between text-xs">
+                <span class="text-gray-300">Glow Intensity</span>
+                <span id="val-bloom" class="font-mono text-indigo-400">1.8</span>
+            </div>
+            <input type="range" id="input-bloom" min="0.0" max="4.0" step="0.1" value="1.8">
+        </div>
+
+        <!-- Visual Toggles -->
+        <div class="pt-2 border-t border-white/10 space-y-2">
+            <label class="flex items-center justify-between cursor-pointer">
+                <span class="text-xs text-gray-300">Particle Dust</span>
+                <input type="checkbox" id="toggle-particles" checked class="sr-only peer">
+                <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600 relative"></div>
+            </label>
+            <label class="flex items-center justify-between cursor-pointer">
+                <span class="text-xs text-gray-300">Wireframe Mode</span>
+                <input type="checkbox" id="toggle-wireframe" class="sr-only peer">
+                <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600 relative"></div>
+            </label>
+        </div>
+    </div>
+
+    <script>
+        // --- Core Variables ---
+        let scene, camera, renderer, composer, bloomPass;
+        let controls;
+        let instancedMesh;
+        let particleSystem;
+        let dummy = new THREE.Object3D();
+        
+        // --- Config Parameters ---
+        const config = {
+            count: 400,
+            speed: 1.2,
+            radius: 35,
+            twist: 12.0,
+            depth: 300,
+            spinSpeed: 1.5,
+            bloomStrength: 1.8,
+            palette: 'neon',
+            showParticles: true,
+            wireframe: false,
+            autoRotate: true
+        };
+
+        // --- Color Palettes ---
+        const palettes = {
+            neon: [
+                new THREE.Color('#ff007f'), // Neon Pink
+                new THREE.Color('#7928ca'), // Purple
+                new THREE.Color('#00f2fe'), // Cyan
+                new THREE.Color('#4facfe')  // Light Blue
+            ],
+            fire: [
+                new THREE.Color('#ff0844'), // Deep Red
+                new THREE.Color('#ffb199'), // Peach
+                new THREE.Color('#f12711'), // Orange
+                new THREE.Color('#f5af19')  // Yellow
+            ],
+            matrix: [
+                new THREE.Color('#00ff87'), // Neon Green
+                new THREE.Color('#60efff'), // Mint
+                new THREE.Color('#00b09b'), // Emerald
+                new THREE.Color('#96e6a1')  // Light Green
+            ],
+            deepspace: [
+                new THREE.Color('#2e0854'), // Dark Purple
+                new THREE.Color('#185a9d'), // Deep Blue
+                new THREE.Color('#3ca55c'), // Cyan-Green
+                new THREE.Color('#e0c3fc')  // Lavender
+            ]
+        };
+
+        // Data arrays for cube instances
+        let cubeData = [];
+
+        // Performance tracking
+        let lastTime = performance.now();
+        let frameCount = 0;
+        const fpsElement = document.getElementById('fps-counter');
+
+        function initScene() {
+            const container = document.getElementById('canvas-container');
+
+            // Scene setup
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x050508, 0.006);
+
+            // Camera setup
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 0, 80);
+
+            // Renderer setup
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: "high-performance" });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.2;
+            container.appendChild(renderer.domElement);
+
+            // Orbit Controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxDistance = 250;
+            controls.minDistance = 10;
+            controls.autoRotate = config.autoRotate;
+            controls.autoRotateSpeed = 0.8;
+
+            // Ambient & Point Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+            scene.add(ambientLight);
+
+            const centerLight = new THREE.PointLight(0xffffff, 2, 200);
+            centerLight.position.set(0, 0, -config.depth);
+            scene.add(centerLight);
+
+            // Post-Processing Setup (Glow / Bloom effect)
+            const renderScene = new THREE.RenderPass(scene, camera);
+            bloomPass = new THREE.UnrealBloomPass(
+                new THREE.Vector2(window.innerWidth, window.innerHeight),
+                config.bloomStrength,
+                0.4,
+                0.85
+            );
+
+            composer = new THREE.EffectComposer(renderer);
+            composer.addPass(renderScene);
+            composer.addPass(bloomPass);
+
+            // Build elements
+            createInstancedCubes();
+            createParticleSystem();
+
+            // Window resize handler
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function createInstancedCubes() {
+            if (instancedMesh) {
+                scene.remove(instancedMesh);
+                instancedMesh.geometry.dispose();
+                instancedMesh.material.dispose();
+            }
+
+            const geometry = new THREE.BoxGeometry(1.8, 1.8, 1.8);
+            
+            // Standard Shader Material with Smoothness and Metallic hints
+            const material = new THREE.MeshStandardMaterial({
+                roughness: 0.2,
+                metalness: 0.8,
+                wireframe: config.wireframe
+            });
+
+            instancedMesh = new THREE.InstancedMesh(geometry, material, config.count);
+            
+            cubeData = [];
+            const currentPalette = palettes[config.palette];
+
+            for (let i = 0; i < config.count; i++) {
+                // Distribute cubes evenly along tunnel depth z axis [0 to -config.depth]
+                const progress = i / config.count;
+                const z = -progress * config.depth;
+
+                // Random spin offset and rotation speed
+                const rotX = Math.random() * Math.PI * 2;
+                const rotY = Math.random() * Math.PI * 2;
+                const rotSpeedX = (Math.random() - 0.5) * 2.0;
+                const rotSpeedY = (Math.random() - 0.5) * 2.0;
+
+                // Color interpolation based on palette
+                const colorIndex = (i / config.count) * (currentPalette.length - 1);
+                const baseIdx = Math.floor(colorIndex);
+                const nextIdx = Math.min(baseIdx + 1, currentPalette.length - 1);
+                const factor = colorIndex - baseIdx;
+
+                const color = new THREE.Color();
+                color.lerpColors(currentPalette[baseIdx], currentPalette[nextIdx], factor);
+
+                // Add slight randomness to color brightness
+                color.multiplyScalar(0.8 + Math.random() * 0.4);
+
+                instancedMesh.setColorAt(i, color);
+
+                cubeData.push({
+                    progress: progress,
+                    rotX: rotX,
+                    rotY: rotY,
+                    rotSpeedX: rotSpeedX,
+                    rotSpeedY: rotSpeedY,
+                    scale: 1.0
+                });
+            }
+
+            instancedMesh.instanceMatrix.needsUpdate = true;
+            if (instancedMesh.instanceColor) instancedMesh.instanceColor.needsUpdate = true;
+            scene.add(instancedMesh);
+        }
+
+        function createParticleSystem() {
+            if (particleSystem) {
+                scene.remove(particleSystem);
+                particleSystem.geometry.dispose();
+                particleSystem.material.dispose();
+            }
+
+            const pCount = 1200;
+            const pGeometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(pCount * 3);
+            const colors = new Float32Array(pCount * 3);
+
+            const activePalette = palettes[config.palette];
+
+            for (let i = 0; i < pCount; i++) {
+                // Spread particles in a wide cylinder along the spiral path
+                const radius = Math.random() * config.radius * 1.8;
+                const angle = Math.random() * Math.PI * 2;
+                const z = -Math.random() * config.depth;
+
+                positions[i * 3] = Math.cos(angle) * radius;
+                positions[i * 3 + 1] = Math.sin(angle) * radius;
+                positions[i * 3 + 2] = z;
+
+                const col = activePalette[Math.floor(Math.random() * activePalette.length)];
+                colors[i * 3] = col.r;
+                colors[i * 3 + 1] = col.g;
+                colors[i * 3 + 2] = col.b;
+            }
+
+            pGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            pGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const pMaterial = new THREE.PointsMaterial({
+                size: 0.6,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.6,
+                blending: THREE.AdditiveBlending
+            });
+
+            particleSystem = new THREE.Points(pGeometry, pMaterial);
+            particleSystem.visible = config.showParticles;
+            scene.add(particleSystem);
+        }
+
+        function animate(time) {
+            requestAnimationFrame(animate);
+
+            const delta = 0.016; // Normalized delta time
+            const timeSec = time * 0.001;
+
+            // Update Controls
+            controls.update();
+
+            // Update Cubes spiral path and rotation
+            if (instancedMesh) {
+                for (let i = 0; i < config.count; i++) {
+                    const data = cubeData[i];
+
+                    // Move cubes towards vanishing point (increasing depth offset)
+                    data.progress += (config.speed * 0.0015);
+                    if (data.progress > 1.0) {
+                        data.progress -= 1.0; // Loop seamlessly back to front
+                    }
+
+                    // Compute current Z position (from camera z=0 down to -config.depth)
+                    const z = -data.progress * config.depth;
+
+                    // Calculate spiral radius tapering toward vanishing point at -config.depth
+                    const depthRatio = 1.0 - (data.progress); // 1 at entrance, 0 at vanishing point
+                    const currentRadius = config.radius * Math.pow(depthRatio, 0.7);
+
+                    // Compute spiral angle based on twist rate and Z depth
+                    const angle = (z * 0.05 * (config.twist / 10)) + (timeSec * 0.5);
+
+                    // Spiral positioning
+                    const x = Math.cos(angle + (i * 0.02)) * currentRadius;
+                    const y = Math.sin(angle + (i * 0.02)) * currentRadius;
+
+                    // Cube rotation
+                    data.rotX += data.rotSpeedX * config.spinSpeed * delta;
+                    data.rotY += data.rotSpeedY * config.spinSpeed * delta;
+
+                    // Compute cube scale: shrink as it nears the vanishing point
+                    const scaleFactor = Math.max(0.05, depthRatio * 1.2);
+
+                    // Update Dummy transform
+                    dummy.position.set(x, y, z);
+                    dummy.rotation.set(data.rotX, data.rotY, 0);
+                    dummy.scale.set(scaleFactor, scaleFactor, scaleFactor);
+                    dummy.updateMatrix();
+
+                    instancedMesh.setMatrixAt(i, dummy.matrix);
+                }
+                instancedMesh.instanceMatrix.needsUpdate = true;
+            }
+
+            // Slowly rotate particle field for dynamic depth
+            if (particleSystem && config.showParticles) {
+                particleSystem.rotation.z = timeSec * 0.05;
+            }
+
+            // Post-processing rendering
+            composer.render();
+
+            // Calculate FPS
+            frameCount++;
+            const now = performance.now();
+            if (now >= lastTime + 1000) {
+                fpsElement.innerText = `${Math.round((frameCount * 1000) / (now - lastTime))} FPS`;
+                frameCount = 0;
+                lastTime = now;
+            }
+        }
+
+        function setupUI() {
+            // Slider Controls
+            const bindSlider = (id, targetKey, valueDisplayId, callback) => {
+                const el = document.getElementById(id);
+                el.addEventListener('input', (e) => {
+                    const val = parseFloat(e.target.value);
+                    config[targetKey] = val;
+                    if (valueDisplayId) {
+                        document.getElementById(valueDisplayId).innerText = val;
+                    }
+                    if (callback) callback(val);
+                });
+            };
+
+            bindSlider('input-cube-count', 'count', 'val-cube-count', () => createInstancedCubes());
+            bindSlider('input-speed', 'speed', 'val-speed');
+            bindSlider('input-radius', 'radius', 'val-radius');
+            bindSlider('input-twist', 'twist', 'val-twist');
+            bindSlider('input-depth', 'depth', 'val-depth', () => {
+                createInstancedCubes();
+                createParticleSystem();
+            });
+            bindSlider('input-spin', 'spinSpeed', 'val-spin');
+            bindSlider('input-bloom', 'bloomStrength', 'val-bloom', (val) => {
+                bloomPass.strength = val;
+            });
+
+            // Toggles
+            document.getElementById('toggle-particles').addEventListener('change', (e) => {
+                config.showParticles = e.target.checked;
+                if (particleSystem) particleSystem.visible = config.showParticles;
+            });
+
+            document.getElementById('toggle-wireframe').addEventListener('change', (e) => {
+                config.wireframe = e.target.checked;
+                if (instancedMesh) instancedMesh.material.wireframe = config.wireframe;
+            });
+
+            // Palette Buttons
+            const paletteBtns = document.querySelectorAll('.palette-btn');
+            paletteBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    paletteBtns.forEach(b => b.classList.remove('border-indigo-500', 'border-2'));
+                    btn.classList.add('border-indigo-500', 'border-2');
+                    
+                    const palName = btn.getAttribute('data-palette');
+                    config.palette = palName;
+                    
+                    const nameMap = { neon: 'Neon Synth', fire: 'Solar Fire', matrix: 'Cyber Matrix', deepspace: 'Deep Space' };
+                    document.getElementById('palette-name').innerText = nameMap[palName];
+
+                    createInstancedCubes();
+                    createParticleSystem();
+                });
+            });
+
+            // Presets
+            const presetBtns = document.querySelectorAll('.preset-btn');
+            presetBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const preset = btn.getAttribute('data-preset');
+                    applyPreset(preset);
+                });
+            });
+
+            // Quick Actions Top Right
+            document.getElementById('btn-toggle-controls').addEventListener('click', () => {
+                const panel = document.getElementById('control-panel');
+                panel.classList.toggle('translate-x-full');
+                panel.classList.toggle('opacity-0');
+                panel.classList.toggle('pointer-events-none');
+            });
+
+            document.getElementById('btn-auto-rotate').addEventListener('click', function() {
+                config.autoRotate = !config.autoRotate;
+                controls.autoRotate = config.autoRotate;
+                this.classList.toggle('text-indigo-400');
+                this.classList.toggle('text-gray-400');
+            });
+
+            document.getElementById('btn-reset-cam').addEventListener('click', () => {
+                camera.position.set(0, 0, 80);
+                controls.target.set(0, 0, 0);
+            });
+        }
+
+        // Preset configurations
+        function applyPreset(name) {
+            if (name === 'hyperdrive') {
+                config.speed = 3.5;
+                config.twist = 25.0;
+                config.radius = 20;
+                config.bloomStrength = 2.5;
+            } else if (name === 'cyberpunk') {
+                config.speed = 1.0;
+                config.twist = 10.0;
+                config.radius = 45;
+                config.bloomStrength = 1.6;
+            } else if (name === 'nebula') {
+                config.speed = 0.5;
+                config.twist = 6.0;
+                config.radius = 55;
+                config.bloomStrength = 2.0;
+            }
+
+            // Sync UI Sliders
+            document.getElementById('input-speed').value = config.speed;
+            document.getElementById('val-speed').innerText = config.speed;
+            document.getElementById('input-twist').value = config.twist;
+            document.getElementById('val-twist').innerText = config.twist;
+            document.getElementById('input-radius').value = config.radius;
+            document.getElementById('val-radius').innerText = config.radius;
+            document.getElementById('input-bloom').value = config.bloomStrength;
+            document.getElementById('val-bloom').innerText = config.bloomStrength;
+
+            bloomPass.strength = config.bloomStrength;
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        window.onload = function() {
+            initScene();
+            setupUI();
+            animate(0);
+        };
+    </script>
+</body>
+</html>
